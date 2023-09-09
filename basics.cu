@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <cuda_runtime.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -11,6 +12,18 @@ void process_input(GLFWwindow *window) {
         glfwSetWindowShouldClose(window, true);
     }
 }
+
+// CUDA kernel to change positions
+__global__ void colorPositions(float4* colors, int numColors, float time) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < numColors) {
+        float t = idx + time;
+        colors[idx] = make_float4(0.5f + 0.5f * sinf(t), 0.5f + 0.5f * sinf(t + 2.0f), 0.5f + 0.5f * sinf(t + 4.0f), 1.0f);
+    }
+}
+
+float4* d_colors; // GPU buffer for colors
+float currentTime = 0.0f;
 
 GLfloat vertices[] = {
     // first triangle
@@ -37,6 +50,44 @@ const char* fragmentShaderSource = "#version 330 core\n"
     "   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);"
     "}";
 
+void compile_shaders(GLuint vertexShader, GLuint fragmentShader, GLuint shaderProgram) {
+    int success;
+    char infoLog[512];
+    // Compile vertex shader
+    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+    glCompileShader(vertexShader);
+    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+        fprintf(stderr, "vertex shader compilation failed: %s\n", infoLog);
+    }
+
+    // Compile fragment shader
+    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+    glCompileShader(fragmentShader);
+    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
+        fprintf(stderr, "fragment shader compilation failed: %s\n", infoLog);
+    }
+
+    // Shader program
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+    glUseProgram(shaderProgram);
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+    if (!success) {
+        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+    }
+
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+}
+
+void display() {
+
+}
 
 int main() {
     glfwInit();
@@ -62,42 +113,11 @@ int main() {
 
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-    // Compile vertex shader
+    // Compile shader
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    int success;
-    char infoLog[512];
-    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-    glCompileShader(vertexShader);
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-        fprintf(stderr, "vertex shader compilation failed: %s\n", infoLog);
-    }
-
-    // Compile fragment shader
-    GLuint fragmentShader;
-    fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-    glCompileShader(fragmentShader);
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-        fprintf(stderr, "fragment shader compilation failed: %s\n", infoLog);
-    }
-
-    // Shader program
-    GLuint shaderProgram;
-    shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-    if (!success) {
-        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-    }
-
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
+    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    GLuint shaderProgram = glCreateProgram();
+    compile_shaders(vertexShader, fragmentShader, shaderProgram);
 
     GLuint vao, vbo, ebo;
     glGenVertexArrays(1, &vao);
@@ -116,28 +136,37 @@ int main() {
     glEnableVertexAttribArray(0);
 
     // Draw wireframe mode
-    // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
+
+    // Create and initialize GPU buffer for colors
+    int numColors = 4;  // Number of vertices
+    cudaMalloc((void**)&d_colors, numColors * sizeof(float4));
 
     const GLubyte* renderer = glGetString(GL_RENDERER); // get renderer string
     const GLubyte* version = glGetString(GL_VERSION); // version as a string
     printf("Renderer: %s\n", renderer);
     printf("OpenGL version supported %s\n", version);
 
+    float currentTime = 0.0f;
+
     while(!glfwWindowShouldClose(window)) {
         // input
         process_input(window);
 
+        // Update the triangle
+        currentTime += 0.01f;
+        colorPositions<<<1, numColors>>>(d_colors, 4, currentTime);
+        cudaMemcpy(vertices, d_colors, 3 * sizeof(float4), cudaMemcpyDeviceToHost);
+
         // render stuff
-        glClearColor(0.2F, 0.3F, 0.3F, 1.0F);
         glClear(GL_COLOR_BUFFER_BIT);
 
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
 
-        // draw
-        glUseProgram(shaderProgram);
         glBindVertexArray(vao);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
 
         // swap and poll events
         glfwSwapBuffers(window);
@@ -148,6 +177,8 @@ int main() {
     glDeleteBuffers(1, &vbo);
     glDeleteProgram(shaderProgram);
     glfwTerminate();
+
+    cudaFree(d_colors);
 
     return 0;
 }
