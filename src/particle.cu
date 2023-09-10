@@ -153,8 +153,14 @@ __global__ void update_state(Particle* particles, size_t n_particles, curandStat
         particles[idx].orient += diff_orient * d_t;
 
         #ifdef LOOP_AROUND
-        particles[idx].pos.x = fmod(particles[idx].pos.x, (float)SCREEN_WIDTH);
-        particles[idx].pos.y = fmod(particles[idx].pos.y, (float)SCREEN_HEIGHT);
+        particle.pos.x = fmod(particle.pos.x, (float)SCREEN_WIDTH);
+        if (particle.pos.x < 0) {
+            particle.pos.x += (float)SCREEN_WIDTH;
+        }
+        particle.pos.y = fmod(particle.pos.y, (float)SCREEN_HEIGHT);
+        if (particle.pos.y < 0) {
+            particle.pos.y += (float)SCREEN_WIDTH;
+        }
         #endif
     }
 
