@@ -49,9 +49,8 @@ void message_callback(GLenum source,
 const char* vertex_shader_source =
     "#version 330 core\n"
     "\n"
-    "#define PARTICLE_SIZE 5.0\n"
-    "\n"
     "uniform vec2 resolution;\n"
+    "uniform float radius;\n"
     "\n"
     "layout(location = 0) in vec2 position;\n"
     "layout(location = 1) in vec3 color;\n"
@@ -67,7 +66,7 @@ const char* vertex_shader_source =
     "        float(gl_VertexID & 1),\n"
     "        float((gl_VertexID >> 1) & 1));\n"
     "    gl_Position = vec4(\n"
-    "       screen_to_ndc(position + uv * PARTICLE_SIZE),\n"
+    "       screen_to_ndc(position + uv * radius * 2),\n"
     "       0.0,\n"
     "       1.0);\n"
     "    particle_color = color;\n"
@@ -138,7 +137,8 @@ bool link_program(GLuint vert_shader, GLuint frag_shader, GLuint *program) {
 }
 
 GLuint program = 0;
-GLint resolutionUniform = 0;
+GLint resolution_uniform = 0;
+GLint radius_uniform = 0;
 
 void init_shaders(void) {
     // Compile vertex shader
@@ -158,7 +158,8 @@ void init_shaders(void) {
     }
 
     glUseProgram(program);
-    resolutionUniform = glGetUniformLocation(program, "resolution");
+    resolution_uniform = glGetUniformLocation(program, "resolution");
+    radius_uniform = glGetUniformLocation(program, "radius");
 
 }
 
@@ -246,7 +247,7 @@ void setup_particles(size_t n_particles) {
         else {
             speed = 0.0f;
         }
-        push_particle(make_float2(pos_x, pos_y), speed, orient, type);
+        push_particle(make_float2(pos_x, pos_y), speed, orient, type, PARTICLE_RADIUS);
     }
 }
 
@@ -316,7 +317,8 @@ int main() {
     // Draw wireframe mode
     /* glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); */
 
-    glUniform2f(resolutionUniform, SCREEN_WIDTH, SCREEN_HEIGHT);
+    glUniform2f(resolution_uniform, SCREEN_WIDTH, SCREEN_HEIGHT);
+    glUniform1f(radius_uniform, PARTICLE_RADIUS);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
 

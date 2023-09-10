@@ -29,7 +29,7 @@ typedef struct {
 } Particle;
 
 void clear_particles(void);
-void push_particle(float2 pos, float speed, float orient, ParticleType charge);
+void push_particle(float2 pos, float speed, float orient, ParticleType charge, float radius);
 void print_particle(Particle* particle);
 size_t get_num_particles();
 Particle* get_particle(size_t idx);

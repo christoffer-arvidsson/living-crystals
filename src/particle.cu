@@ -169,13 +169,13 @@ void clear_particles(void) {
     particles_count = 0;
 }
 
-void push_particle(float2 pos, float speed, float orient, ParticleType charge) {
+void push_particle(float2 pos, float speed, float orient, ParticleType charge, float radius) {
     assert(particles_count < PARTICLES_CAPACITY);
     particles[particles_count].pos = pos;
     particles[particles_count].speed = speed;
     particles[particles_count].orient = orient;
     particles[particles_count].charge = charge;
-    particles[particles_count].radius = 5.0;
+    particles[particles_count].radius = radius;
     particles_count += 1;
 }
 

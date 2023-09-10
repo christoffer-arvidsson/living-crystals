@@ -12,6 +12,7 @@
 #define ATTR_STRENGTH 20.0f
 #define ACTIVE_FRACTION 0.2f
 #define PARTICLE_SPEED 100.0f
+#define PARTICLE_RADIUS 5.0f
 
 #define LOOP_AROUND
 
