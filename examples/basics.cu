@@ -85,10 +85,6 @@ void compile_shaders(GLuint vertexShader, GLuint fragmentShader, GLuint shaderPr
     glDeleteShader(fragmentShader);
 }
 
-void display() {
-
-}
-
 int main() {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);

@@ -2,5 +2,5 @@
 
 set -xe
 
-nvcc -o tunnels tunnels.cu  -lGL -lglfw -lGLEW -lX11 -lpthread -lXrandr -lXi -ldl  &&
-    ./tunnels
+nvcc -o bin/main src/particle.cu  -lGL -lglfw -lGLEW -lX11 -lpthread -lXrandr -lXi -ldl  &&
+    ./bin/main
