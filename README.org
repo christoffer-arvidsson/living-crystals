@@ -1,3 +1,6 @@
+* What
+Simulation of micro-swimmers with brownian motion.
+
 * References
 - CUDA particle simulation
   https://developer.download.nvidia.com/assets/cuda/files/particles.pdf
