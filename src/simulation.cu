@@ -10,7 +10,7 @@
 #include "particle.h"
 #include "constants.h"
 
-bool pause = false;
+bool pause = true;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(width/2 - SCREEN_WIDTH / 2,
@@ -239,8 +239,8 @@ void setup_particles(size_t n_particles) {
         float speed = (float)rand()/(float)(RAND_MAX);
         float orient = (float)rand()/((float)(RAND_MAX)/(3.14f * 2.0f));
         ParticleType type = PASSIVE;
-        if ((float)rand()/((float)(RAND_MAX)) < 0.1f) {
-            speed += 100.0f;
+        if ((float)rand()/((float)(RAND_MAX)) < (float)ACTIVE_FRACTION) {
+            speed += PARTICLE_SPEED;
             type = ACTIVE;
         }
         else {

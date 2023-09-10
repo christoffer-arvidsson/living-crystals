@@ -5,11 +5,13 @@
 
 #define RNG_SEED 1234
 
-#define TRANS_COEFF 0.22f
-#define ROT_COEFF 0.16f
+#define TRANS_COEFF 0.01f
+#define ROT_COEFF 0.01f
 #define DELTA_T 0.01f
-#define INTR_CUTOFF 80.0f
-#define ATTR_STRENGTH 5.0f
+#define INTR_CUTOFF 25.0f
+#define ATTR_STRENGTH 20.0f
+#define ACTIVE_FRACTION 0.2f
+#define PARTICLE_SPEED 100.0f
 
 #define LOOP_AROUND
 
