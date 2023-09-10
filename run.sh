@@ -1,4 +1,6 @@
 #!/bin/sh
 
-nvcc -o basics basics.cu glad/src/glad.c -lGL -lglfw -lX11 -lpthread -lXrandr -lXi -ldl -Iglad/include &&
-    ./basics
+set -xe
+
+nvcc -o tunnels tunnels.cu  -lGL -lglfw -lGLEW -lX11 -lpthread -lXrandr -lXi -ldl  &&
+    ./tunnels
