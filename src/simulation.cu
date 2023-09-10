@@ -45,7 +45,7 @@ void message_callback(GLenum source,
 const char* vertex_shader_source =
     "#version 330 core\n"
     "\n"
-    "#define PARTICLE_SIZE 10.0\n"
+    "#define PARTICLE_SIZE 5.0\n"
     "\n"
     "uniform vec2 resolution;\n"
     "\n"
@@ -215,6 +215,17 @@ void sync_buffers(void) {
     glBufferSubData(GL_ARRAY_BUFFER, 0, verts_count * sizeof(verts[0]), verts);
 }
 
+float3 particle_type_to_color(ParticleType type) {
+    switch (type) {
+    case ACTIVE:
+        return make_float3(0.8f, 0.2f, 0.4f);
+    case PASSIVE:
+        return make_float3(0.3f, 0.3f, 0.3f);
+    default:
+        return make_float3(0.0f, 0.0f, 0.0f);
+    }
+}
+
 void setup_particles(size_t n_particles) {
     clear_particles();
 
@@ -239,18 +250,7 @@ void particles_to_vert(void) {
     for (size_t p = 0; p < get_num_particles(); ++p) {
         Particle* part = get_particle(p);
 
-        float3 color = make_float3(0.0f, 0.0f, 0.0f);
-        if (part->charge == ACTIVE) {
-            color.x = 1.0f;
-            color.y = 0.0f;
-            color.z = 0.0f;
-        }
-        else {
-            color.x = 1.0f;
-            color.y = 1.0f;
-            color.z = 1.0f;
-        }
-
+        float3 color = particle_type_to_color(part->charge);
         push_vert(part->pos.x, part->pos.y, color.x, color.y, color.z);
     }
 }
