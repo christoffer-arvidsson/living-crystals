@@ -236,9 +236,12 @@ void setup_particles(size_t n_particles) {
         float speed = (float)rand()/(float)(RAND_MAX);
         float orient = (float)rand()/((float)(RAND_MAX)/(3.14f * 2.0f));
         ParticleType type = PASSIVE;
-        if ((float)rand()/((float)(RAND_MAX)) < 1.0f) {
-            speed += 50.0f;
+        if ((float)rand()/((float)(RAND_MAX)) < 0.1f) {
+            speed += 100.0f;
             type = ACTIVE;
+        }
+        else {
+            speed = 0.0f;
         }
         push_particle(make_float2(pos_x, pos_y), speed, orient, type);
     }
