@@ -74,11 +74,11 @@ __device__ float squared_norm(float2 vec) {
 
 __device__ float compute_torque(Particle* particles, size_t n_particles) {
     int idx = threadIdx.x + blockDim.x * blockIdx.x;
-    Particle part_n = particles[idx];
+    Particle* part_n = &particles[idx];
 
     const float attract_strength = ATTR_STRENGTH;
     const float r_c = INTR_CUTOFF;
-    float2 unit_vel_n = make_float2(cosf(part_n.orient), sinf(part_n.orient));
+    float2 unit_vel_n = make_float2(cosf(part_n->orient), sinf(part_n->orient));
     float3 unit_vel_n3 = make_float3(unit_vel_n.x, unit_vel_n.y, 0.0f);
     float3 unit_z = make_float3(0.0f, 0.0f, 1.0f);
 
@@ -87,19 +87,18 @@ __device__ float compute_torque(Particle* particles, size_t n_particles) {
         if (i == idx) {
             continue;
         }
-        Particle part_i = particles[i];
-        float2 dist_ni = cyclic_distance(part_i.pos, part_n.pos, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
-
+        Particle* part_i = &particles[i];
+        float2 dist_ni = cyclic_distance(part_n->pos, part_i->pos, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
         float s_dist_ni = squared_norm(dist_ni);
 
         if (sqrtf(s_dist_ni) < r_c) {
             // (unit_vel_n dot dist_ni) / dist_ni**2) cross (dist_ni dot unit_z)
             float3 dist_ni_3 = make_float3(dist_ni.x, dist_ni.y, 0.0f);
             float sign;
-            if (part_i.charge != part_n.charge) {
+            if (part_i->charge != part_n->charge) {
                 sign = -1.0f;
             }
-            else if (part_i.charge == ACTIVE && part_n.charge == ACTIVE) {
+            else if (part_i->charge == ACTIVE && part_n->charge == ACTIVE) {
                 sign = 1.0f;
             }
             else {
