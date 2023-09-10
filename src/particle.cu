@@ -8,11 +8,108 @@
 
 #define RNG_SEED 1234
 
-#define LOOP_AROUND true
+#define TRANS_COEFF 0.22f
+#define ROT_COEFF 0.16f
+#define DELTA_T 0.01f
+#define INTR_CUTOFF 80.0f
+#define ATTR_STRENGTH 10.0f
 
-#define PARTICLES_CAPACITY 64
+#define LOOP_AROUND
+
+#define PARTICLES_CAPACITY 1024
 Particle particles[PARTICLES_CAPACITY];
 size_t particles_count = 0;
+
+
+inline __host__ __device__ float2 operator+(float2 a, float2 b) {
+    return make_float2(a.x + b.x, a.y + b.y);
+}
+
+inline __host__ __device__ float2 operator-(float2 a, float2 b) {
+    return make_float2(a.x - b.x, a.y - b.y);
+}
+
+inline __host__ __device__ float2 operator*(float2 a, float2 b) {
+    return make_float2(a.x * b.x, a.y * b.y);
+}
+
+inline __host__ __device__ float3 operator*(float a, float3 b) {
+    return make_float3(a * b.x, a * b.y, a * b.z);
+}
+
+inline __host__ __device__ float2 operator*(float a, float2 b) {
+    return make_float2(a * b.x, a * b.y);
+}
+
+inline __host__ __device__ float2 f3_to_f2(float3 vec) {
+    return make_float2(vec.x, vec.y);
+}
+
+inline __host__ __device__ float3 f2_to_f3(float2 vec) {
+    return make_float3(vec.x, vec.y, 0.0f);
+}
+
+__device__ float dot_product2(float2 a, float2 b) {
+    return (a.x * b.x) + (a.y * b.y);
+}
+
+__device__ float dot_product3(float3 a, float3 b) {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+__device__ float3 cross_product(float3 a, float3 b) {
+    float3 result;
+    result.x = a.y * b.z - a.z * b.y;
+    result.y = a.z * b.x - a.x * b.z;
+    result.z = a.x * b.y - a.y * b.x;
+    return result;
+}
+
+__device__ float squared_norm(float2 vec) {
+    return vec.x * vec.x + vec.y * vec.y;
+}
+
+__device__ float compute_torque(Particle* particles, size_t n_particles) {
+    int idx = threadIdx.x + blockDim.x * blockIdx.x;
+    Particle part_n = particles[idx];
+
+    const float attract_strength = ATTR_STRENGTH;
+    const float r_c = INTR_CUTOFF;
+    float2 unit_vel_n = make_float2(cosf(part_n.orient), sinf(part_n.orient));
+    float3 unit_vel_n3 = make_float3(unit_vel_n.x, unit_vel_n.y, 0.0f);
+    float3 unit_z = make_float3(0.0f, 0.0f, 1.0f);
+
+    float torque = 0.0f;
+    for (size_t i=0; i < n_particles; ++i) {
+        if (i == idx) {
+            continue;
+        }
+        Particle part_i = particles[i];
+        float2 dist_ni = part_i.pos - part_n.pos;
+        float s_dist_ni = squared_norm(dist_ni);
+
+        if (sqrtf(s_dist_ni) < r_c) {
+            // (unit_vel_n dot dist_ni) / dist_ni**2) cross (dist_ni dot unit_z)
+            float3 dist_ni_3 = make_float3(dist_ni.x, dist_ni.y, 0.0f);
+            float sign;
+            if (part_i.charge != part_n.charge) {
+                sign = -1.0f;
+            }
+            else if (part_i.charge == ACTIVE && part_n.charge == ACTIVE) {
+                sign = 1.0f;
+            }
+            else {
+                sign = 0.0f;
+            }
+
+            torque = torque + sign * dot_product3(cross_product((dot_product2(unit_vel_n, dist_ni) / s_dist_ni) * unit_vel_n3, dist_ni_3), unit_z);
+        }
+    }
+
+    torque *= attract_strength;
+
+    return torque;
+}
 
 __global__ void setup_rng(curandState* state) {
     int idx = threadIdx.x + blockDim.x * blockIdx.x;
@@ -25,31 +122,35 @@ __global__ void update_state(Particle* particles, size_t n_particles, curandStat
         Particle particle = particles[idx];
 
         // precompute these
-        const float trans_coeff = 0.22;
-        const float rot_coeff = 0.16;
-        const float d_t = 0.1;
+        const float trans_coeff = TRANS_COEFF;
+        const float rot_coeff = ROT_COEFF;
+        const float d_t = DELTA_T;
         const float sq_trans = sqrtf(2 * trans_coeff);
         const float sq_rot = sqrtf(2 * rot_coeff);
 
         // normally distributed random numbers
-        float weight_x = curand_normal(curand_state);
-        float weight_y = curand_normal(curand_state);
-        float weight_rot = curand_normal(curand_state);
+        float weight_x = curand_normal(&(curand_state[idx]));
+        float weight_y = curand_normal(&(curand_state[idx]));
+        float weight_rot = curand_normal(&(curand_state[idx]));
 
         // dx(t)/dt = v * cos(theta(t)) + sqrt(2 * D_T) * W_x
         float diff_x = particle.speed * cosf(particle.orient) + sq_trans * weight_x;
         // dy(t)/dt = v * sin(theta(t)) + sqrt(2 * D_T) * W_y
         float diff_y = particle.speed * sinf(particle.orient) + sq_trans * weight_y;
-        // dtheta(t)/dt = sqrt(2 * D_R) * W_theta
-        float diff_orient = sq_rot * weight_rot;
 
-        particles[idx].p_x += diff_x * d_t;
-        particles[idx].p_y += diff_y * d_t;
+        // dtheta(t)/dt = torque + sqrt(2 * D_R) * W_theta
+        float torque = compute_torque(particles, n_particles);
+        float diff_orient = torque + sq_rot * weight_rot;
+
+        // Sync to do a synchronized state update
+        __syncthreads();
+        particles[idx].pos.x += diff_x * d_t;
+        particles[idx].pos.y += diff_y * d_t;
         particles[idx].orient += diff_orient * d_t;
 
         #ifdef LOOP_AROUND
-        particles[idx].p_x = fmod(particles[idx].p_x, 800.0f);
-        particles[idx].p_y = fmod(particles[idx].p_y, 600.0f);
+        particles[idx].pos.x = fmod(particles[idx].pos.x, 800.0f);
+        particles[idx].pos.y = fmod(particles[idx].pos.y, 600.0f);
         #endif
     }
 
@@ -59,13 +160,12 @@ void clear_particles(void) {
     particles_count = 0;
 }
 
-void push_particle(float p_x, float p_y, float speed, float orient) {
+void push_particle(float2 pos, float speed, float orient, ParticleType charge) {
     assert(particles_count < PARTICLES_CAPACITY);
-    particles[particles_count].p_x = p_x;
-    particles[particles_count].p_y = p_y;
+    particles[particles_count].pos = pos;
     particles[particles_count].speed = speed;
-    particles[particles_count].orient = 0.0;
-    particles[particles_count].charge = ACTIVE;
+    particles[particles_count].orient = orient;
+    particles[particles_count].charge = charge;
     particles[particles_count].radius = 5.0;
     particles_count += 1;
 }
@@ -73,8 +173,8 @@ void push_particle(float p_x, float p_y, float speed, float orient) {
 
 void print_particle(Particle* particle) {
     printf("x: %f y: %f speed: %f rad: %f orient: %f\n",
-           particle->p_x,
-           particle->p_y,
+           particle->pos.x,
+           particle->pos.y,
            particle->speed,
            particle->radius,
            particle->orient);
@@ -90,7 +190,7 @@ void init_simulation(void) {
 
     // Setup rng
     cudaMalloc(&d_state, sizeof(curandState));
-    setup_rng<<<1,1>>>(d_state);
+    setup_rng<<<3,particles_count>>>(d_state);
 }
 void tick_simulation(void) {
     update_state<<<1, particles_count>>>(d_particles, particles_count, d_state);
@@ -105,21 +205,4 @@ Particle* get_particle(size_t idx) {
 
 size_t get_num_particles(void) {
     return particles_count;
-}
-
-int main_2() {
-    // Particles
-    clear_particles();
-    push_particle(50.0, 50.0, 0.0, 0.0);
-    push_particle(-50.0, 50.0, 1.0, 0.0);
-    push_particle(-50.0, -50.0, 2.0, 0.0);
-    push_particle(50.0, -50.0, 3.0, 0.0);
-
-    init_simulation();
-
-    for (size_t step=0; step < 100; ++step) {
-        tick_simulation();
-    }
-
-    return 0;
 }

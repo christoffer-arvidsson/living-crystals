@@ -7,6 +7,7 @@
 #include <GLFW/glfw3.h>
 
 #include "particle.h"
+#include <cuda_runtime.h>
 
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 600
@@ -170,7 +171,7 @@ typedef struct {
     GLfloat b;
 } Vert;
 
-#define VERTS_CAPACITY 64
+#define VERTS_CAPACITY 1024
 Vert verts[VERTS_CAPACITY];
 size_t verts_count = 0;
 
@@ -214,21 +215,43 @@ void sync_buffers(void) {
     glBufferSubData(GL_ARRAY_BUFFER, 0, verts_count * sizeof(verts[0]), verts);
 }
 
-void setup_particles(void) {
+void setup_particles(size_t n_particles) {
     clear_particles();
-    float sx = (float)SCREEN_WIDTH / 2.0;
-    float sy = (float)SCREEN_HEIGHT / 2.0;
-    push_particle(sx+50.0, sy+50.0, 0.0, 0.0);
-    push_particle(sx-50.0, sy+50.0, 1.0, 0.0);
-    push_particle(sx-50.0, sy-50.0, 2.0, 0.0);
-    push_particle(sx+50.0, sy-50.0, 3.0, 0.0);
+
+    // PASSIVE
+    for (size_t p=0; p<n_particles; ++p) {
+        float pos_x = (float)rand()/(float)(RAND_MAX/SCREEN_WIDTH);
+        float pos_y = (float)rand()/(float)(RAND_MAX/SCREEN_HEIGHT);
+        float speed = (float)rand()/(float)(RAND_MAX);
+        float orient = (float)rand()/((float)(RAND_MAX)/(3.14f * 2.0f));
+        ParticleType type = PASSIVE;
+        if ((float)rand()/((float)(RAND_MAX)) < 1.0f) {
+            speed += 50.0f;
+            type = ACTIVE;
+        }
+        push_particle(make_float2(pos_x, pos_y), speed, orient, type);
+    }
 }
 
 void particles_to_vert(void) {
     clear_verts();
+
     for (size_t p = 0; p < get_num_particles(); ++p) {
         Particle* part = get_particle(p);
-        push_vert(part->p_x, part->p_y, 1.0, 0.0, 0.0);
+
+        float3 color = make_float3(0.0f, 0.0f, 0.0f);
+        if (part->charge == ACTIVE) {
+            color.x = 1.0f;
+            color.y = 0.0f;
+            color.z = 0.0f;
+        }
+        else {
+            color.x = 1.0f;
+            color.y = 1.0f;
+            color.z = 1.0f;
+        }
+
+        push_vert(part->pos.x, part->pos.y, color.x, color.y, color.z);
     }
 }
 
@@ -289,7 +312,7 @@ int main() {
     glUniform2f(resolutionUniform, SCREEN_WIDTH, SCREEN_HEIGHT);
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
-    setup_particles();
+    setup_particles(VERTS_CAPACITY);
     init_simulation();
     while(!glfwWindowShouldClose(window)) {
         // input
