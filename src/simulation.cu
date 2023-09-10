@@ -5,12 +5,12 @@
 #define GLEW_STATIC
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
-
-#include "particle.h"
 #include <cuda_runtime.h>
 
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 600
+#include "particle.h"
+#include "constants.h"
+
+bool pause = false;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(width/2 - SCREEN_WIDTH / 2,
@@ -19,9 +19,13 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
                SCREEN_HEIGHT);
 }
 
-void process_input(GLFWwindow *window) {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+void process_input(GLFWwindow *window, int key, int scancode, int action, int mods) {
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, true);
+    }
+
+    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
+        pause = !pause;
     }
 }
 
@@ -171,8 +175,7 @@ typedef struct {
     GLfloat b;
 } Vert;
 
-#define VERTS_CAPACITY 1024
-Vert verts[VERTS_CAPACITY];
+Vert verts[PARTICLES_CAPACITY];
 size_t verts_count = 0;
 
 GLuint vao = 0;
@@ -200,7 +203,7 @@ void clear_verts(void) {
 }
 
 void push_vert(float x, float y, float r, float g, float b) {
-    assert(verts_count < VERTS_CAPACITY);
+    assert(verts_count < PARTICLES_CAPACITY);
     verts[verts_count].x = x;
     verts[verts_count].y = y;
     verts[verts_count].r = r;
@@ -283,6 +286,7 @@ int main() {
     }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSetKeyCallback(window, process_input);
 
     if (GLEW_OK != glewInit()) {
         fprintf(stderr, "ERROR: Could not initialize GLEW!\n");
@@ -313,16 +317,17 @@ int main() {
     /* glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); */
 
     glUniform2f(resolutionUniform, SCREEN_WIDTH, SCREEN_HEIGHT);
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
-    setup_particles(VERTS_CAPACITY);
+
+    setup_particles(PARTICLES_CAPACITY);
     init_simulation();
     while(!glfwWindowShouldClose(window)) {
         // input
-        process_input(window);
-
-        tick_simulation();
-        render_particles();
+        if (!pause) {
+            tick_simulation();
+            render_particles();
+        }
 
         // swap and poll events
         glfwSwapBuffers(window);

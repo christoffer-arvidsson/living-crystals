@@ -5,18 +5,8 @@
 #include <curand.h>
 #include <curand_kernel.h>
 #include "particle.h"
+#include "constants.h"
 
-#define RNG_SEED 1234
-
-#define TRANS_COEFF 0.22f
-#define ROT_COEFF 0.16f
-#define DELTA_T 0.01f
-#define INTR_CUTOFF 80.0f
-#define ATTR_STRENGTH 10.0f
-
-#define LOOP_AROUND
-
-#define PARTICLES_CAPACITY 1024
 Particle particles[PARTICLES_CAPACITY];
 size_t particles_count = 0;
 
@@ -47,6 +37,19 @@ inline __host__ __device__ float2 f3_to_f2(float3 vec) {
 
 inline __host__ __device__ float3 f2_to_f3(float2 vec) {
     return make_float3(vec.x, vec.y, 0.0f);
+}
+
+__device__ float2 cyclic_distance(float2 a, float2 b, float width, float height) {
+    float2 dist = a - b;
+    float dx = fabsf(dist.x);
+    if (dx > width) {
+        dist.x = width / 2.0f;
+    }
+    float dy = fabsf(dist.y);
+    if (dy > height) {
+        dist.y = height / 2.0f;
+    }
+    return dist;
 }
 
 __device__ float dot_product2(float2 a, float2 b) {
@@ -85,7 +88,8 @@ __device__ float compute_torque(Particle* particles, size_t n_particles) {
             continue;
         }
         Particle part_i = particles[i];
-        float2 dist_ni = part_i.pos - part_n.pos;
+        float2 dist_ni = cyclic_distance(part_i.pos, part_n.pos, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
+
         float s_dist_ni = squared_norm(dist_ni);
 
         if (sqrtf(s_dist_ni) < r_c) {
@@ -149,8 +153,8 @@ __global__ void update_state(Particle* particles, size_t n_particles, curandStat
         particles[idx].orient += diff_orient * d_t;
 
         #ifdef LOOP_AROUND
-        particles[idx].pos.x = fmod(particles[idx].pos.x, 800.0f);
-        particles[idx].pos.y = fmod(particles[idx].pos.y, 600.0f);
+        particles[idx].pos.x = fmod(particles[idx].pos.x, (float)SCREEN_WIDTH);
+        particles[idx].pos.y = fmod(particles[idx].pos.y, (float)SCREEN_HEIGHT);
         #endif
     }
 
