@@ -1,6 +1,11 @@
 * What
 Simulation of micro-swimmers with brownian motion.
 
+* Todos
+- FPS counter
+- Separate simulation and rendering threads
+- Random particle initialization
+
 * References
-- CUDA particle simulation
-  https://developer.download.nvidia.com/assets/cuda/files/particles.pdf
+- CUDA particle simulation :: https://developer.download.nvidia.com/assets/cuda/files/particles.pdf
+- Brownian motion simulation :: Volpe, Gigan & Volpe (2014) Simulation of the active Brownian motion of a microswimmer, American Journal of Physics.

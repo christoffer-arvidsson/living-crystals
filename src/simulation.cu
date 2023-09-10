@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <assert.h>
+#include <stdbool.h>
 
 #define GLEW_STATIC
 #include <GL/glew.h>
-#include <cuda_runtime.h>
 #include <GLFW/glfw3.h>
+
+#include "particle.h"
 
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 600
@@ -42,7 +44,7 @@ void message_callback(GLenum source,
 const char* vertex_shader_source =
     "#version 330 core\n"
     "\n"
-    "#define PARTICLE_SIZE 100.0\n"
+    "#define PARTICLE_SIZE 10.0\n"
     "\n"
     "uniform vec2 resolution;\n"
     "\n"
@@ -212,6 +214,34 @@ void sync_buffers(void) {
     glBufferSubData(GL_ARRAY_BUFFER, 0, verts_count * sizeof(verts[0]), verts);
 }
 
+void setup_particles(void) {
+    clear_particles();
+    float sx = (float)SCREEN_WIDTH / 2.0;
+    float sy = (float)SCREEN_HEIGHT / 2.0;
+    push_particle(sx+50.0, sy+50.0, 0.0, 0.0);
+    push_particle(sx-50.0, sy+50.0, 1.0, 0.0);
+    push_particle(sx-50.0, sy-50.0, 2.0, 0.0);
+    push_particle(sx+50.0, sy-50.0, 3.0, 0.0);
+}
+
+void particles_to_vert(void) {
+    clear_verts();
+    for (size_t p = 0; p < get_num_particles(); ++p) {
+        Particle* part = get_particle(p);
+        push_vert(part->p_x, part->p_y, 1.0, 0.0, 0.0);
+    }
+}
+
+void render_particles(void) {
+    particles_to_vert();
+    sync_buffers();
+
+    // render stuff
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBindVertexArray(vao);
+    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, verts_count);
+}
+
 int main() {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -259,23 +289,14 @@ int main() {
     glUniform2f(resolutionUniform, SCREEN_WIDTH, SCREEN_HEIGHT);
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
-    float p = 0.0;
+    setup_particles();
+    init_simulation();
     while(!glfwWindowShouldClose(window)) {
         // input
         process_input(window);
 
-        p += 1.0;
-
-        clear_verts();
-        push_vert(100.0, 100.0, 1.0, 0.0, 0.0);
-        push_vert(400.0, 400.0, 0.0, 1.0, 0.0);
-        push_vert(600.0, 400.0, 0.0, 0.0, 1.0);
-        sync_buffers();
-
-        // render stuff
-        glClear(GL_COLOR_BUFFER_BIT);
-        glBindVertexArray(vao);
-        glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, verts_count);
+        tick_simulation();
+        render_particles();
 
         // swap and poll events
         glfwSwapBuffers(window);
