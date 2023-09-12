@@ -10,7 +10,8 @@ CUDA and OpenGL and serves as an exploration project for particle physics simula
 # Todos
 - Tiling subregions for better performance than bruteforce n-body
     - Also launch more than one thread block to not be capped to 1024 particles
-- FPS counter
+- FPS counter (on screen, but requires a lot of font stuff)
+    - Currently logs in terminal
 - Separate simulation and rendering threads
 - Collision and accurate particle size rendering
 

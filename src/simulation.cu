@@ -324,8 +324,21 @@ int main() {
 
     setup_particles(PARTICLES_CAPACITY);
     init_simulation();
+
+    double last_time = glfwGetTime();
+    int num_frames = 0;
     while(!glfwWindowShouldClose(window)) {
         // input
+        double current_time = glfwGetTime();
+        num_frames += 1;
+        if (current_time - last_time >= 1.0) {
+            printf("%f ms/frame\n", 1000.0/double(num_frames));
+            num_frames = 0;
+            last_time += 1.0;
+        }
+
+        if (current_time)
+
         if (!pause) {
             tick_simulation();
             render_particles();
