@@ -7,6 +7,9 @@ CUDA and OpenGL and serves as an exploration project for particle physics simula
 
 ![Simulation video](https://github.com/christoffer-arvidsson/living-crystals/blob/main/assets/sim.gif)
 
+# Requires
+- GPU atomic operations (compute capability >= 1.1)
+
 # Todos
 - Tiling subregions for better performance than bruteforce n-body
     - Also launch more than one thread block to not be capped to 1024 particles

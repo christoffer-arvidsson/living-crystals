@@ -337,8 +337,6 @@ int main() {
             last_time += 1.0;
         }
 
-        if (current_time)
-
         if (!pause) {
             tick_simulation();
             render_particles();

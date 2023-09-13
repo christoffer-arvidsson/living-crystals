@@ -1,7 +1,9 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
-#define PARTICLES_CAPACITY 1024
+#define PARTICLES_CAPACITY 1024*8
+#define MAX_PARTICLES_PER_CELL 32
+#define TILE_SIZE 50
 
 #define RNG_SEED 1234
 
@@ -16,7 +18,7 @@
 
 #define LOOP_AROUND
 
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 600
+#define SCREEN_WIDTH 1280
+#define SCREEN_HEIGHT 720
 
 #endif /* CONSTANTS_H */

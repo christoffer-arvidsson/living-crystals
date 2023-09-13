@@ -6,7 +6,7 @@
 #include <cuda_runtime.h>
 
 typedef struct {
-    uint32_t steps;
+    unsigned int steps;
     float delta_t;
     float trans_coeff; // 0.22,
     float rot_coeff; // 0.16,
@@ -31,8 +31,8 @@ typedef struct {
 void clear_particles(void);
 void push_particle(float2 pos, float speed, float orient, ParticleType charge, float radius);
 void print_particle(Particle* particle);
-size_t get_num_particles();
-Particle* get_particle(size_t idx);
+unsigned int get_num_particles();
+Particle* get_particle(unsigned int idx);
 
 void init_simulation(void);
 void tick_simulation(void);
