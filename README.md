@@ -5,18 +5,21 @@ Originally I implemented this as part of an assignment for a simulation course,
 but in python with pygame and numpy. This reimplementation is written in C with
 CUDA and OpenGL and serves as an exploration project for particle physics simulation.
 
-![Simulation video](https://github.com/christoffer-arvidsson/living-crystals/blob/main/assets/sim.gif)
+With passive particles, the active particles dig channels and keep the channels stable even if diffusion would close them.
+
+![Tunnel video](https://github.com/christoffer-arvidsson/living-crystals/blob/main/assets/tunnels.gif)
+
+Without passive particles small clusters form.
+
+![Cluster video](https://github.com/christoffer-arvidsson/living-crystals/blob/main/assets/clusters.gif)
 
 # Requires
 - GPU atomic operations (compute capability >= 1.1)
 
 # Todos
 - Tiling subregions for better performance than bruteforce n-body
-    - Also launch more than one thread block to not be capped to 1024 particles
-- FPS counter (on screen, but requires a lot of font stuff)
-    - Currently logs in terminal
+  - done but need to check all 9 neighbor+center instead of just the center region for interactions (particles can be on the border of two tiles)
 - Separate simulation and rendering threads
-- Collision and accurate particle size rendering
 
 # References
 - CUDA particle simulation :: https://developer.download.nvidia.com/assets/cuda/files/particles.pdf
