@@ -17,9 +17,8 @@ Without passive particles small clusters form.
 - GPU atomic operations (compute capability >= 1.1)
 
 # Todos
-- Tiling subregions for better performance than bruteforce n-body
-  - done but need to check all 9 neighbor+center instead of just the center region for interactions (particles can be on the border of two tiles)
 - Separate simulation and rendering threads
+- Rendering at the edges of the window has flickering particles because of the cyclic domain
 
 # References
 - CUDA particle simulation :: https://developer.download.nvidia.com/assets/cuda/files/particles.pdf

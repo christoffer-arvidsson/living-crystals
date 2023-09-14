@@ -81,30 +81,51 @@ __global__ void update_grid_tiles(Particle* particles, unsigned int n_particles,
     }
 }
 
+// Interactions need to check the 9 neighboring tiles including the
+// center for nearby particles. These are the offsets.
+__device__ const int NEIGHBOR_OFFSET[9][2] = {
+    {-1, -1},
+    {-1, 0},
+    {-1, 1},
+    {0, -1},
+    {0, 0},
+    {0, 1},
+    {1, -1},
+    {1, 0},
+    {1, 1},
+};
+
 __device__ void resolve_collisions(Particle* particles, unsigned int n_particles, Grid* grid) {
     int idx = threadIdx.x + blockDim.x * blockIdx.x;
 
     Particle* part_n = &particles[idx];
     uint2 tile_idx = get_tile_idx(part_n);
-    unsigned int num_neighbors = grid->counts[tile_idx.y][tile_idx.x];
-
     float diameter = static_cast<float>(PARTICLE_RADIUS * 2U);
-    for (unsigned int i=0; i < num_neighbors; ++i) {
-        unsigned int neighbor = grid->cells[tile_idx.y][tile_idx.x][i];
 
-        if (neighbor == idx) {
+    for (unsigned int t_idx=0; t_idx<9; ++t_idx) {
+        int tx = tile_idx.x + NEIGHBOR_OFFSET[t_idx][0];
+        int ty = tile_idx.y + NEIGHBOR_OFFSET[t_idx][1];
+        if (!(tx >= 0 && tx < grid->tw && ty >= 0 && ty < grid->th)) {
             continue;
         }
-        Particle* part_i = &particles[neighbor];
-        float2 dist_ni = cyclic_distance(part_n->pos, part_i->pos, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
-        float squared_distance_ni = squared_norm(dist_ni);
-        float distance_ni = sqrtf(squared_distance_ni);
+        unsigned int num_neighbors = grid->counts[ty][tx];
+        for (unsigned int i=0; i < num_neighbors; ++i) {
+            unsigned int neighbor = grid->cells[ty][tx][i];
 
-        if (distance_ni < diameter) {
-            float overlap = diameter - distance_ni;
-            float2 unit_vec_i_to_n = dist_ni / distance_ni;
-            part_i->pos = part_i->pos - (overlap / 2) * unit_vec_i_to_n;
-            part_n->pos = part_n->pos + (overlap / 2) * unit_vec_i_to_n;
+            if (neighbor == idx) {
+                continue;
+            }
+            Particle* part_i = &particles[neighbor];
+            float2 dist_ni = cyclic_distance(part_n->pos, part_i->pos, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
+            float squared_distance_ni = squared_norm(dist_ni);
+            float distance_ni = sqrtf(squared_distance_ni);
+
+            if (distance_ni < diameter) {
+                float overlap = diameter - distance_ni;
+                float2 unit_vec_i_to_n = dist_ni / distance_ni;
+                part_i->pos = part_i->pos - (overlap / 2) * unit_vec_i_to_n;
+                part_n->pos = part_n->pos + (overlap / 2) * unit_vec_i_to_n;
+            }
         }
     }
 }
@@ -112,47 +133,54 @@ __device__ void resolve_collisions(Particle* particles, unsigned int n_particles
 __device__ float compute_torque(Particle* particles, unsigned int n_particles, Grid* grid) {
     int idx = threadIdx.x + blockDim.x * blockIdx.x;
     Particle* part_n = &particles[idx];
-
     uint2 tile_idx = get_tile_idx(part_n);
-    unsigned int num_neighbors = grid->counts[tile_idx.y][tile_idx.x];
 
-    const float attract_strength = ATTR_STRENGTH;
-    const float r_c = INTR_CUTOFF;
     float2 unit_vel_n = make_float2(cosf(part_n->orient), sinf(part_n->orient));
     float3 unit_vel_n3 = make_float3(unit_vel_n.x, unit_vel_n.y, 0.0f);
     float3 unit_z = make_float3(0.0f, 0.0f, 1.0f);
+    const float attract_strength = ATTR_STRENGTH;
+    const float r_c = INTR_CUTOFF;
 
     float torque = 0.0f;
-    for (unsigned int i=0; i < num_neighbors; ++i) {
-        unsigned int neighbor = grid->cells[tile_idx.y][tile_idx.x][i];
-
-        if (neighbor == idx) {
+    for (unsigned int t_idx=0; t_idx<9; ++t_idx) {
+        int tx = tile_idx.x + NEIGHBOR_OFFSET[t_idx][0];
+        int ty = tile_idx.y + NEIGHBOR_OFFSET[t_idx][1];
+        if (!(tx >= 0 && tx < grid->tw && ty >= 0 && ty < grid->th)) {
             continue;
         }
-        Particle* part_i = &particles[neighbor];
-        float2 dist_ni = cyclic_distance(part_n->pos, part_i->pos, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
-        float squared_distance_ni = squared_norm(dist_ni);
-        float distance_ni = sqrtf(squared_distance_ni);
+        unsigned int num_neighbors = grid->counts[ty][tx];
 
-        // Torque
-        if (distance_ni < r_c) {
-            // (unit_vel_n dot dist_ni) / dist_ni**2) cross (dist_ni dot unit_z)
-            float3 dist_ni_3 = make_float3(dist_ni.x, dist_ni.y, 0.0f);
-            float sign;
-            if (part_i->charge != part_n->charge) {
-                sign = -1.0f;
-            }
-            else if (part_i->charge == ACTIVE && part_n->charge == ACTIVE) {
-                sign = 1.0f;
-            }
-            else {
-                sign = 0.0f;
-            }
+        for (unsigned int i=0; i < num_neighbors; ++i) {
+            unsigned int neighbor = grid->cells[ty][tx][i];
 
-            torque = torque + sign *
-            dot_product3(cross_product((dot_product2(unit_vel_n,
-            dist_ni) / squared_distance_ni) * unit_vel_n3, dist_ni_3),
-            unit_z);
+            if (neighbor == idx) {
+                continue;
+            }
+            Particle* part_i = &particles[neighbor];
+            float2 dist_ni = cyclic_distance(part_n->pos, part_i->pos, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
+            float squared_distance_ni = squared_norm(dist_ni);
+            float distance_ni = sqrtf(squared_distance_ni);
+
+            // Torque
+            if (distance_ni < r_c) {
+                // (unit_vel_n dot dist_ni) / dist_ni**2) cross (dist_ni dot unit_z)
+                float3 dist_ni_3 = make_float3(dist_ni.x, dist_ni.y, 0.0f);
+                float sign;
+                if (part_i->charge != part_n->charge) {
+                    sign = -1.0f;
+                }
+                else if (part_i->charge == ACTIVE && part_n->charge == ACTIVE) {
+                    sign = 1.0f;
+                }
+                else {
+                    sign = 0.0f;
+                }
+
+                torque = torque + sign *
+                dot_product3(cross_product((dot_product2(unit_vel_n,
+                dist_ni) / squared_distance_ni) * unit_vel_n3, dist_ni_3),
+                unit_z);
+            }
         }
     }
 
