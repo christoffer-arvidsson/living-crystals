@@ -81,6 +81,33 @@ __global__ void update_grid_tiles(Particle* particles, unsigned int n_particles,
     }
 }
 
+__device__ void resolve_collisions(Particle* particles, unsigned int n_particles, Grid* grid) {
+    int idx = threadIdx.x + blockDim.x * blockIdx.x;
+
+    Particle* part_n = &particles[idx];
+    uint2 tile_idx = get_tile_idx(part_n);
+    unsigned int num_neighbors = grid->counts[tile_idx.y][tile_idx.x];
+    for (unsigned int i=0; i < num_neighbors; ++i) {
+        unsigned int neighbor = grid->cells[tile_idx.y][tile_idx.x][i];
+
+        if (neighbor == idx) {
+            continue;
+        }
+        Particle* part_i = &particles[neighbor];
+        float2 dist_ni = cyclic_distance(part_n->pos, part_i->pos, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
+        float squared_distance_ni = squared_norm(dist_ni);
+        float distance_ni = sqrtf(squared_distance_ni);
+        float diameter = static_cast<float>(PARTICLE_RADIUS * 2U);
+
+        if (distance_ni < diameter) {
+            float overlap = diameter - distance_ni;
+            float2 unit_vec_i_to_n = dist_ni / distance_ni;
+            part_i->pos = part_i->pos - (overlap / 2) * unit_vec_i_to_n;
+            part_n->pos = part_n->pos + (overlap / 2) * unit_vec_i_to_n;
+        }
+    }
+}
+
 __device__ float compute_torque(Particle* particles, unsigned int n_particles, Grid* grid) {
     int idx = threadIdx.x + blockDim.x * blockIdx.x;
     Particle* part_n = &particles[idx];
@@ -105,15 +132,6 @@ __device__ float compute_torque(Particle* particles, unsigned int n_particles, G
         float2 dist_ni = cyclic_distance(part_n->pos, part_i->pos, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
         float squared_distance_ni = squared_norm(dist_ni);
         float distance_ni = sqrtf(squared_distance_ni);
-        float diameter = static_cast<float>(PARTICLE_RADIUS * 2U);
-
-        // collision
-        if (distance_ni < diameter) {
-            float overlap = diameter - distance_ni;
-            float2 unit_vec_i_to_n = dist_ni / distance_ni;
-            part_i->pos = part_i->pos - (overlap / 2) * unit_vec_i_to_n;
-            part_n->pos = part_n->pos + (overlap / 2) * unit_vec_i_to_n;
-        }
 
         // Torque
         if (distance_ni < r_c) {
@@ -168,7 +186,6 @@ __global__ void update_state(Particle* particles, unsigned int n_particles, cura
         float diff_y = particle->speed * sinf(particle->orient) + sq_trans * weight_y;
 
         // dtheta(t)/dt = torque + sqrt(2 * D_R) * W_theta
-
         float torque = compute_torque(particles, n_particles, grid);
         float diff_orient = torque + sq_rot * weight_rot;
 
@@ -177,6 +194,8 @@ __global__ void update_state(Particle* particles, unsigned int n_particles, cura
         particles[idx].pos.x += diff_x * d_t;
         particles[idx].pos.y += diff_y * d_t;
         particles[idx].orient += diff_orient * d_t;
+        __syncthreads();
+        resolve_collisions(particles, n_particles, grid);
 
         #ifdef LOOP_AROUND
         particle->pos.x = fmod(particle->pos.x, (float)SCREEN_WIDTH);
