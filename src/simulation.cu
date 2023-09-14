@@ -56,6 +56,8 @@ const char* vertex_shader_source =
     "layout(location = 1) in vec3 color;\n"
     "\n"
     "out vec3 particle_color;\n"
+    "out vec2 particle_center;\n"
+    "out float particle_radius;\n"
     "\n"
     "vec2 screen_to_ndc(vec2 pos) {\n"
     "    return (pos - resolution * 0.5) / (resolution * 0.5);\n"
@@ -70,13 +72,23 @@ const char* vertex_shader_source =
     "       0.0,\n"
     "       1.0);\n"
     "    particle_color = color;\n"
+    "    particle_center =  uv;\n"
+    "    particle_radius = radius;\n"
     "}\n";
 
 const char* frag_shader_source =
     "#version 330 core\n"
     "in vec3 particle_color;\n"
+    "in vec2 particle_center;\n"
+    "in float particle_radius;\n"
     "void main() {\n"
-    "   gl_FragColor = vec4(particle_color, 1.0);\n"
+    "    vec2 temp = particle_center - vec2(0.5);\n"
+    "    float f = dot(temp, temp);\n"
+    "    if (f>0.25) {\n"
+    "        discard;\n"
+    "    } else {\n"
+    "        gl_FragColor = vec4(particle_color, 1.0);\n"
+        "}\n"
     "}\n";
 
 const char *shader_type_as_cstr(GLuint shader)

@@ -4,9 +4,9 @@
 #include <cuda_runtime.h>
 #include <curand.h>
 #include <curand_kernel.h>
-#include "particle.h"
 #include "constants.h"
 #include "cuda_helpers.h"
+#include "particle.h"
 
 Particle particles[PARTICLES_CAPACITY];
 unsigned int particles_count = 0;
@@ -87,6 +87,8 @@ __device__ void resolve_collisions(Particle* particles, unsigned int n_particles
     Particle* part_n = &particles[idx];
     uint2 tile_idx = get_tile_idx(part_n);
     unsigned int num_neighbors = grid->counts[tile_idx.y][tile_idx.x];
+
+    float diameter = static_cast<float>(PARTICLE_RADIUS * 2U);
     for (unsigned int i=0; i < num_neighbors; ++i) {
         unsigned int neighbor = grid->cells[tile_idx.y][tile_idx.x][i];
 
@@ -97,7 +99,6 @@ __device__ void resolve_collisions(Particle* particles, unsigned int n_particles
         float2 dist_ni = cyclic_distance(part_n->pos, part_i->pos, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT);
         float squared_distance_ni = squared_norm(dist_ni);
         float distance_ni = sqrtf(squared_distance_ni);
-        float diameter = static_cast<float>(PARTICLE_RADIUS * 2U);
 
         if (distance_ni < diameter) {
             float overlap = diameter - distance_ni;
@@ -239,6 +240,7 @@ void init_simulation(void) {
     }
     cudaDeviceSynchronize();
 }
+
 void tick_simulation(void) {
     if (num_tiles < 1024) {
         reset_grid_tiles_count<<<1,num_tiles>>>(d_grid);
