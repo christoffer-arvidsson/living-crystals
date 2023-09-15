@@ -5,13 +5,14 @@ Originally I implemented this as part of an assignment for a simulation course,
 but in python with pygame and numpy. This reimplementation is written in C with
 CUDA and OpenGL and serves as an exploration project for particle physics simulation.
 
-With passive particles, the active particles dig channels and keep the channels stable even if diffusion would close them.
+*Tunnels*
 
-![Tunnel video](https://github.com/christoffer-arvidsson/living-crystals/blob/main/assets/tunnels.gif)
+https://github.com/christoffer-arvidsson/living-crystals/asset/26621143/6491c366-7754-4a0a-9ad8-2ddfb3a5e40c
 
-Without passive particles small clusters form.
+*Clusters*
 
-![Cluster video](https://github.com/christoffer-arvidsson/living-crystals/blob/main/assets/clusters.gif)
+https://github.com/christoffer-arvidsson/living-crystals/assets/26621143/8dc85d3b-3ab1-40b0-957f-be5aa629a53d
+
 
 # Requires
 - GPU atomic operations (compute capability >= 1.1)
