@@ -3,6 +3,8 @@
 set -xe
 
 CFLAGS="-Xcompiler -Wall"
+LIBS="-lGL -lglfw -lGLEW -lX11 -lpthread -lXrandr -lXi -ldl"
+SRC="src/simulation.c src/particle.cu"
 
-nvcc $CFLAGS -o bin/main src/simulation.cu src/particle.cu  -lGL -lglfw -lGLEW -lX11 -lpthread -lXrandr -lXi -ldl  &&
+nvcc $CFLAGS -o bin/main $SRC $LIBS  &&
     ./bin/main

@@ -6,7 +6,10 @@
 #include <curand_kernel.h>
 #include "constants.h"
 #include "cuda_helpers.h"
-#include "particle.h"
+
+extern "C" {
+    #include "particle.h"
+}
 
 const size_t num_tiles_x = (SCREEN_WIDTH / TILE_SIZE) + 2U;
 const size_t num_tiles_y = (SCREEN_HEIGHT / TILE_SIZE) + 2U;
