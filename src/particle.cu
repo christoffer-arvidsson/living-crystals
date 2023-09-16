@@ -8,8 +8,6 @@
 #include "cuda_helpers.h"
 #include "particle.h"
 
-Particle particles[PARTICLES_CAPACITY];
-unsigned int particles_count = 0;
 const unsigned int num_tiles_x = (SCREEN_WIDTH / TILE_SIZE) + 2U;
 const unsigned int num_tiles_y = (SCREEN_HEIGHT / TILE_SIZE) + 2U;
 const unsigned int num_tiles = num_tiles_x * num_tiles_y;
@@ -23,26 +21,28 @@ typedef struct {
 } Grid;
 
 
-void clear_particles(void) {
-    particles_count = 0;
+void clear_particles(ParticleContainer* container) {
+    container->particles_count = 0;
 }
 
-void push_particle(float2 pos, float speed, float orient, ParticleType charge, float radius) {
-    assert(particles_count < PARTICLES_CAPACITY);
-    particles[particles_count].pos = pos;
-    particles[particles_count].speed = speed;
-    particles[particles_count].orient = orient;
-    particles[particles_count].charge = charge;
-    particles[particles_count].radius = radius;
-    particles_count += 1;
+void push_particle(ParticleContainer* container, float2 pos, float2 velocity, float orient, ParticleType charge, float radius) {
+    assert(container->particles_count < PARTICLES_CAPACITY);
+    size_t current = container->particles_count;
+    container->particles[current].pos = pos;
+    container->particles[current].velocity = velocity;
+    container->particles[current].orient = orient;
+    container->particles[current].charge = charge;
+    container->particles[current].radius = radius;
+    container->particles_count += 1;
 }
 
 
 void print_particle(Particle* particle) {
-    printf("x: %f y: %f speed: %f rad: %f orient: %f\n",
+    printf("x: %f y: %f v_x: %f v_y: %f rad: %f orient: %f\n",
            particle->pos.x,
            particle->pos.y,
-           particle->speed,
+           particle->velocity.x,
+           particle->velocity.y,
            particle->radius,
            particle->orient);
 }
@@ -210,9 +210,9 @@ __global__ void update_state(Particle* particles, unsigned int n_particles, cura
         float weight_rot = curand_normal(&(curand_state[idx]));
 
         // dx(t)/dt = v * cos(theta(t)) + sqrt(2 * D_T) * W_x
-        float diff_x = particle->speed * cosf(particle->orient) + sq_trans * weight_x;
+        float diff_x = particle->velocity.x * cosf(particle->orient) + sq_trans * weight_x;
         // dy(t)/dt = v * sin(theta(t)) + sqrt(2 * D_T) * W_y
-        float diff_y = particle->speed * sinf(particle->orient) + sq_trans * weight_y;
+        float diff_y = particle->velocity.y * sinf(particle->orient) + sq_trans * weight_y;
 
         // dtheta(t)/dt = torque + sqrt(2 * D_R) * W_theta
         float torque = compute_torque(particles, n_particles, grid);
@@ -243,10 +243,11 @@ Particle* d_particles;
 curandState *d_state;
 Grid* d_grid;
 
-void init_simulation(void) {
+void init_simulation(ParticleContainer* container) {
     // Setup particles
+    size_t particles_count = container->particles_count;
     cudaMalloc((void**)&d_particles, particles_count * sizeof(Particle));
-    cudaMemcpy(d_particles, particles, particles_count * sizeof(Particle), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_particles, container->particles, particles_count * sizeof(Particle), cudaMemcpyHostToDevice);
 
     // Setup rng
     cudaMalloc(&d_state, particles_count * sizeof(curandState));
@@ -269,7 +270,8 @@ void init_simulation(void) {
     cudaDeviceSynchronize();
 }
 
-void tick_simulation(void) {
+void tick_simulation(ParticleContainer* container) {
+    size_t particles_count = container->particles_count;
     if (num_tiles < 1024) {
         reset_grid_tiles_count<<<1,num_tiles>>>(d_grid);
     } else {
@@ -283,15 +285,15 @@ void tick_simulation(void) {
     update_state<<<num_blocks, 1024>>>(d_particles, particles_count, d_state, d_grid);
     cudaDeviceSynchronize();
 
-    cudaMemcpy(particles, d_particles, particles_count * sizeof(Particle), cudaMemcpyDeviceToHost);
+    cudaMemcpy(container->particles, d_particles, particles_count * sizeof(Particle), cudaMemcpyDeviceToHost);
     cudaDeviceSynchronize();
 }
 
-Particle* get_particle(unsigned int idx) {
-    assert (idx < particles_count);
-    return &particles[idx];
+const Particle* get_particle(const ParticleContainer* container, unsigned int idx) {
+    assert (idx < container->particles_count);
+    return &container->particles[idx];
 }
 
-unsigned int get_num_particles(void) {
-    return particles_count;
+unsigned int get_num_particles(ParticleContainer* container) {
+    return container->particles_count;
 }

@@ -242,8 +242,8 @@ float3 particle_type_to_color(ParticleType type) {
     }
 }
 
-void setup_particles(size_t n_particles) {
-    clear_particles();
+void setup_particles(ParticleContainer* container, size_t n_particles) {
+    clear_particles(container);
 
     // PASSIVE
     for (size_t p=0; p<n_particles; ++p) {
@@ -259,23 +259,23 @@ void setup_particles(size_t n_particles) {
         else {
             speed = 0.0f;
         }
-        push_particle(make_float2(pos_x, pos_y), speed, orient, type, PARTICLE_RADIUS);
+        push_particle(container, make_float2(pos_x, pos_y), make_float2(speed, speed), orient, type, PARTICLE_RADIUS);
     }
 }
 
-void particles_to_vert(void) {
+void particles_to_vert(ParticleContainer* container) {
     clear_verts();
 
-    for (size_t p = 0; p < get_num_particles(); ++p) {
-        Particle* part = get_particle(p);
+    for (size_t p = 0; p < get_num_particles(container); ++p) {
+        const Particle* part = get_particle(container, p);
 
         float3 color = particle_type_to_color(part->charge);
         push_vert(part->pos.x, part->pos.y, color.x, color.y, color.z);
     }
 }
 
-void render_particles(void) {
-    particles_to_vert();
+void render_particles(ParticleContainer* container) {
+    particles_to_vert(container);
     sync_buffers();
 
     // render stuff
@@ -334,8 +334,9 @@ int main() {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
 
-    setup_particles(PARTICLES_CAPACITY);
-    init_simulation();
+    ParticleContainer container = {0};
+    setup_particles(&container, PARTICLES_CAPACITY);
+    init_simulation(&container);
 
     double last_time = glfwGetTime();
     int num_frames = 0;
@@ -350,8 +351,8 @@ int main() {
         }
 
         if (!pause) {
-            tick_simulation();
-            render_particles();
+            tick_simulation(&container);
+            render_particles(&container);
         }
 
         // swap and poll events
