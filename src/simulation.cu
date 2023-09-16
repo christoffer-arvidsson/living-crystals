@@ -217,7 +217,7 @@ void sync_buffers(void) {
     glBufferSubData(GL_ARRAY_BUFFER, 0, verts_count * sizeof(verts[0]), verts);
 }
 
-float3 particle_type_to_color(ParticleType type) {
+float3 particle_type_to_color(ParticleCharge type) {
     switch (type) {
     case ACTIVE:
         return make_float3(0.8f, 0.2f, 0.4f);
@@ -237,15 +237,22 @@ void setup_particles(ParticleContainer* container, size_t n_particles) {
         float pos_y = (float)rand()/(float)(RAND_MAX/SCREEN_HEIGHT);
         float speed = (float)rand()/(float)(RAND_MAX);
         float orient = (float)rand()/((float)(RAND_MAX)/(3.14f * 2.0f));
-        ParticleType type = PASSIVE;
+        ParticleCharge charge = PASSIVE;
         if ((float)rand()/((float)(RAND_MAX)) < (float)ACTIVE_FRACTION) {
             speed += PARTICLE_SPEED;
-            type = ACTIVE;
+            charge = ACTIVE;
         }
         else {
             speed = 0.0f;
         }
-        push_particle(container, make_float2(pos_x, pos_y), make_float2(speed, speed), orient, type, PARTICLE_RADIUS);
+        const Particle particle = {
+            .pos = make_float2(pos_x, pos_y),
+            .velocity = make_float2(speed, speed),
+            .radius = PARTICLE_RADIUS,
+            .charge = charge,
+            .orient = orient,
+        };
+        push_particle(container, &particle);
     }
 }
 

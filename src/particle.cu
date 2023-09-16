@@ -8,10 +8,10 @@
 #include "cuda_helpers.h"
 #include "particle.h"
 
-const unsigned int num_tiles_x = (SCREEN_WIDTH / TILE_SIZE) + 2U;
-const unsigned int num_tiles_y = (SCREEN_HEIGHT / TILE_SIZE) + 2U;
-const unsigned int num_tiles = num_tiles_x * num_tiles_y;
-const unsigned int num_blocks = (PARTICLES_CAPACITY / 1024U) + 1U;
+const size_t num_tiles_x = (SCREEN_WIDTH / TILE_SIZE) + 2U;
+const size_t num_tiles_y = (SCREEN_HEIGHT / TILE_SIZE) + 2U;
+const size_t num_tiles = num_tiles_x * num_tiles_y;
+const size_t num_blocks = (PARTICLES_CAPACITY / 1024U) + 1U;
 
 typedef struct {
     unsigned int tw = num_tiles_x;
@@ -25,14 +25,14 @@ void clear_particles(ParticleContainer* container) {
     container->particles_count = 0;
 }
 
-void push_particle(ParticleContainer* container, float2 pos, float2 velocity, float orient, ParticleType charge, float radius) {
+void push_particle(ParticleContainer* container, const Particle* particle) {
     assert(container->particles_count < PARTICLES_CAPACITY);
     size_t current = container->particles_count;
-    container->particles[current].pos = pos;
-    container->particles[current].velocity = velocity;
-    container->particles[current].orient = orient;
-    container->particles[current].charge = charge;
-    container->particles[current].radius = radius;
+    container->particles[current].pos = particle->pos;
+    container->particles[current].velocity = particle->velocity;
+    container->particles[current].orient = particle->orient;
+    container->particles[current].charge = particle->charge;
+    container->particles[current].radius = particle->radius;
     container->particles_count += 1;
 }
 
@@ -289,11 +289,11 @@ void tick_simulation(ParticleContainer* container) {
     cudaDeviceSynchronize();
 }
 
-const Particle* get_particle(const ParticleContainer* container, unsigned int idx) {
+const Particle* get_particle(const ParticleContainer* container, size_t idx) {
     assert (idx < container->particles_count);
     return &container->particles[idx];
 }
 
-unsigned int get_num_particles(ParticleContainer* container) {
+size_t get_num_particles(ParticleContainer* container) {
     return container->particles_count;
 }
