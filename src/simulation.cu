@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 #include <stdbool.h>
 
@@ -46,50 +48,31 @@ void message_callback(GLenum source,
             type, severity, message);
 }
 
-const char* vertex_shader_source =
-    "#version 330 core\n"
-    "\n"
-    "uniform vec2 resolution;\n"
-    "uniform float radius;\n"
-    "\n"
-    "layout(location = 0) in vec2 position;\n"
-    "layout(location = 1) in vec3 color;\n"
-    "\n"
-    "out vec3 particle_color;\n"
-    "out vec2 particle_center;\n"
-    "out float particle_radius;\n"
-    "\n"
-    "vec2 screen_to_ndc(vec2 pos) {\n"
-    "    return (pos - resolution * 0.5) / (resolution * 0.5);\n"
-    "}\n"
-    "\n"
-    "void main() {\n"
-    "    vec2 uv = vec2(\n"
-    "        float(gl_VertexID & 1),\n"
-    "        float((gl_VertexID >> 1) & 1));\n"
-    "    gl_Position = vec4(\n"
-    "       screen_to_ndc(position + uv * radius * 2),\n"
-    "       0.0,\n"
-    "       1.0);\n"
-    "    particle_color = color;\n"
-    "    particle_center =  uv;\n"
-    "    particle_radius = radius;\n"
-    "}\n";
+char* read_shader_content(const char* file_name) {
+    FILE *fp;
+    long size = 0;
+    char* shader_content;
 
-const char* frag_shader_source =
-    "#version 330 core\n"
-    "in vec3 particle_color;\n"
-    "in vec2 particle_center;\n"
-    "in float particle_radius;\n"
-    "void main() {\n"
-    "    vec2 temp = particle_center - vec2(0.5);\n"
-    "    float f = dot(temp, temp);\n"
-    "    if (f>0.25) {\n"
-    "        discard;\n"
-    "    } else {\n"
-    "        gl_FragColor = vec4(particle_color, 1.0);\n"
-        "}\n"
-    "}\n";
+    fp = fopen(file_name, "rb");
+    if (fp == NULL) {
+        fprintf(stderr, "Failed reading shader file: %s", file_name);
+        return NULL;
+    }
+
+    fseek(fp, 0L, SEEK_END);
+    size = ftell(fp) + 1;
+    fclose(fp);
+
+    fp = fopen(file_name, "r");
+    shader_content = (char*) memset(malloc(size), '\0', size);
+    fread(shader_content, 1, size-1, fp);
+    fclose(fp);
+
+    return shader_content;
+}
+
+const char* vertex_shader_source = read_shader_content("src/shaders/main.vert");
+const char* frag_shader_source = read_shader_content("src/shaders/main.frag");
 
 const char *shader_type_as_cstr(GLuint shader)
 {
@@ -105,6 +88,9 @@ const char *shader_type_as_cstr(GLuint shader)
 
 bool compile_shader_source(const GLchar *source, GLenum shader_type, GLuint *shader) {
     *shader = glCreateShader(shader_type);
+    if (*shader == 0) {
+        fprintf(stderr, "Could not create shader: %s\n", shader_type_as_cstr(shader_type));
+    }
     glShaderSource(*shader, 1, &source, NULL);
     glCompileShader(*shader);
 
@@ -325,9 +311,6 @@ int main() {
     // Compile shader
     init_shaders();
     init_buffers();
-
-    // Draw wireframe mode
-    /* glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); */
 
     glUniform2f(resolution_uniform, SCREEN_WIDTH, SCREEN_HEIGHT);
     glUniform1f(radius_uniform, PARTICLE_RADIUS);
