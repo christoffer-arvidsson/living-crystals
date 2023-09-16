@@ -138,8 +138,6 @@ __device__ float compute_torque(Particle* particles, unsigned int n_particles, G
     float2 unit_vel_n = make_float2(cosf(part_n->orient), sinf(part_n->orient));
     float3 unit_vel_n3 = make_float3(unit_vel_n.x, unit_vel_n.y, 0.0f);
     float3 unit_z = make_float3(0.0f, 0.0f, 1.0f);
-    const float attract_strength = ATTR_STRENGTH;
-    const float r_c = INTR_CUTOFF;
 
     float torque = 0.0f;
     for (unsigned int t_idx=0; t_idx<9; ++t_idx) {
@@ -162,7 +160,7 @@ __device__ float compute_torque(Particle* particles, unsigned int n_particles, G
             float distance_ni = sqrtf(squared_distance_ni);
 
             // Torque
-            if (distance_ni < r_c) {
+            if (distance_ni < INTR_CUTOFF) {
                 // (unit_vel_n dot dist_ni) / dist_ni**2) cross (dist_ni dot unit_z)
                 float3 dist_ni_3 = make_float3(dist_ni.x, dist_ni.y, 0.0f);
                 float sign;
@@ -184,7 +182,7 @@ __device__ float compute_torque(Particle* particles, unsigned int n_particles, G
         }
     }
 
-    torque *= attract_strength;
+    torque *= ATTR_STRENGTH;
 
     return torque;
 }
@@ -195,11 +193,8 @@ __global__ void update_state(Particle* particles, unsigned int n_particles, cura
         Particle* particle = &particles[idx];
 
         // precompute these
-        const float trans_coeff = TRANS_COEFF;
-        const float rot_coeff = ROT_COEFF;
-        const float d_t = DELTA_T;
-        const float sq_trans = sqrtf(2 * trans_coeff);
-        const float sq_rot = sqrtf(2 * rot_coeff);
+        const float sq_trans = sqrtf(2 * TRANS_COEFF * DELTA_T);
+        const float sq_rot = sqrtf(2 * ROT_COEFF * DELTA_T);
 
         // normally distributed random numbers
 
@@ -210,23 +205,23 @@ __global__ void update_state(Particle* particles, unsigned int n_particles, cura
         float weight_rot = curand_normal(&(curand_state[idx]));
 
         // dx(t)/dt = v * cos(theta(t)) + sqrt(2 * D_T) * W_x
-        float diff_x = particle->velocity.x * cosf(particle->orient) + sq_trans * weight_x;
+        float diff_x = particle->velocity.x * cosf(particle->orient) * DELTA_T + sq_trans * weight_x;
         // dy(t)/dt = v * sin(theta(t)) + sqrt(2 * D_T) * W_y
-        float diff_y = particle->velocity.y * sinf(particle->orient) + sq_trans * weight_y;
+        float diff_y = particle->velocity.y * sinf(particle->orient) * DELTA_T + sq_trans * weight_y;
 
         // dtheta(t)/dt = torque + sqrt(2 * D_R) * W_theta
         float torque = compute_torque(particles, n_particles, grid);
-        float diff_orient = torque + sq_rot * weight_rot;
+        float diff_orient = torque * DELTA_T + sq_rot * weight_rot;
 
         // Sync to do a synchronized state update
         __syncthreads();
-        particles[idx].pos.x += diff_x * d_t;
-        particles[idx].pos.y += diff_y * d_t;
-        particles[idx].orient += diff_orient * d_t;
+        particles[idx].pos.x += diff_x;
+        particles[idx].pos.y += diff_y;
+        particles[idx].orient += diff_orient;
         __syncthreads();
         resolve_collisions(particles, n_particles, grid);
 
-        #ifdef LOOP_AROUND
+        // loop around
         particle->pos.x = fmod(particle->pos.x, (float)SCREEN_WIDTH);
         if (particle->pos.x < 0) {
             particle->pos.x += (float)SCREEN_WIDTH;
@@ -235,7 +230,6 @@ __global__ void update_state(Particle* particles, unsigned int n_particles, cura
         if (particle->pos.y < 0) {
             particle->pos.y += (float)SCREEN_HEIGHT;
         }
-        #endif
     }
 
 }
