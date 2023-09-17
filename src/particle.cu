@@ -25,18 +25,18 @@ typedef struct {
 
 
 void clear_particles(ParticleContainer* container) {
-    container->particles_count = 0;
+    container->size = 0;
 }
 
 void push_particle(ParticleContainer* container, const Particle* particle) {
-    assert(container->particles_count < PARTICLES_CAPACITY);
-    size_t current = container->particles_count;
+    assert(container->size < PARTICLES_CAPACITY);
+    size_t current = container->size;
     container->particles[current].pos = particle->pos;
     container->particles[current].velocity = particle->velocity;
     container->particles[current].orient = particle->orient;
     container->particles[current].charge = particle->charge;
     container->particles[current].radius = particle->radius;
-    container->particles_count += 1;
+    container->size += 1;
 }
 
 
@@ -242,13 +242,13 @@ Grid* d_grid;
 
 void init_simulation(ParticleContainer* container) {
     // Setup particles
-    size_t particles_count = container->particles_count;
-    cudaMalloc((void**)&d_particles, particles_count * sizeof(Particle));
-    cudaMemcpy(d_particles, container->particles, particles_count * sizeof(Particle), cudaMemcpyHostToDevice);
+    size_t size = container->size;
+    cudaMalloc((void**)&d_particles, size * sizeof(Particle));
+    cudaMemcpy(d_particles, container->particles, size * sizeof(Particle), cudaMemcpyHostToDevice);
 
     // Setup rng
-    cudaMalloc(&d_state, particles_count * sizeof(curandState));
-    setup_rng<<<num_blocks,1024>>>(d_state, particles_count);
+    cudaMalloc(&d_state, size * sizeof(curandState));
+    setup_rng<<<num_blocks,1024>>>(d_state, size);
 
     // Setup grid
     Grid grid = {
@@ -268,7 +268,7 @@ void init_simulation(ParticleContainer* container) {
 }
 
 void tick_simulation(ParticleContainer* container) {
-    size_t particles_count = container->particles_count;
+    size_t size = container->size;
     if (num_tiles < 1024) {
         reset_grid_tiles_count<<<1,num_tiles>>>(d_grid);
     } else {
@@ -276,21 +276,17 @@ void tick_simulation(ParticleContainer* container) {
     }
     cudaDeviceSynchronize();
 
-    update_grid_tiles<<<num_blocks,1024>>>(d_particles, particles_count, d_grid);
+    update_grid_tiles<<<num_blocks,1024>>>(d_particles, size, d_grid);
     cudaDeviceSynchronize();
 
-    update_state<<<num_blocks, 1024>>>(d_particles, particles_count, d_state, d_grid);
+    update_state<<<num_blocks, 1024>>>(d_particles, size, d_state, d_grid);
     cudaDeviceSynchronize();
 
-    cudaMemcpy(container->particles, d_particles, particles_count * sizeof(Particle), cudaMemcpyDeviceToHost);
+    cudaMemcpy(container->particles, d_particles, size * sizeof(Particle), cudaMemcpyDeviceToHost);
     cudaDeviceSynchronize();
 }
 
 const Particle* get_particle(const ParticleContainer* container, size_t idx) {
-    assert (idx < container->particles_count);
+    assert (idx < container->size);
     return &container->particles[idx];
-}
-
-size_t get_num_particles(ParticleContainer* container) {
-    return container->particles_count;
 }

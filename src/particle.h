@@ -21,14 +21,13 @@ typedef struct {
 
 typedef struct {
     Particle particles[PARTICLES_CAPACITY];
-    size_t particles_count;
+    size_t size;
 } ParticleContainer;
 
 void clear_particles(ParticleContainer* container);
 void push_particle(ParticleContainer* container, const Particle* partilcle);
 void print_particle(const Particle* particle);
 
-size_t get_num_particles(ParticleContainer* container);
 const Particle* get_particle(const ParticleContainer* container, size_t idx);
 
 void init_simulation(ParticleContainer* container);
