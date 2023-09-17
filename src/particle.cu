@@ -146,9 +146,12 @@ __device__ float compute_torque(Particle* particles, unsigned int n_particles, G
     for (unsigned int t_idx=0; t_idx<9; ++t_idx) {
         int tx = tile_idx.x + NEIGHBOR_OFFSET[t_idx][0];
         int ty = tile_idx.y + NEIGHBOR_OFFSET[t_idx][1];
-        if (!(tx >= 0 && tx < grid->tw && ty >= 0 && ty < grid->th)) {
-            continue;
-        }
+        if (tx < 0) tx = grid->tw - 1;
+        if (ty < 0) tx = grid->th - 1;
+        if (tx > grid->tw) tx = 0;
+        if (ty > grid->th) tx = 0;
+
+
         unsigned int num_neighbors = grid->counts[ty][tx];
 
         for (unsigned int i=0; i < num_neighbors; ++i) {

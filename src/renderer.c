@@ -77,10 +77,10 @@ bool link_program(GLuint vert_shader, GLuint frag_shader, GLuint *program) {
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-    glViewport(width/2 - SCREEN_WIDTH / 2,
-               height/2 - SCREEN_HEIGHT / 2,
-               SCREEN_WIDTH,
-               SCREEN_HEIGHT);
+    glViewport(width/2 - SCREEN_WIDTH / 2 - PARTICLE_RADIUS,
+               height/2 - SCREEN_HEIGHT / 2 - PARTICLE_RADIUS,
+               SCREEN_WIDTH + PARTICLE_RADIUS,
+               SCREEN_HEIGHT + PARTICLE_RADIUS);
 }
 
 void process_input(GLFWwindow *window, int key, int scancode, int action, int mods) {

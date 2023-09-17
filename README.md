@@ -18,8 +18,9 @@ https://github.com/christoffer-arvidsson/living-crystals/assets/26621143/8dc85d3
 - GPU atomic operations (compute capability >= 1.1)
 
 # Todos
+- Wrap simulation in Simulator struct (for device state)
 - Separate simulation and rendering threads
-- Rendering at the edges of the window has flickering particles because of the cyclic domain
+- Reuse the vbo with cuda+opengl interop
 
 # References
 - CUDA particle simulation :: https://developer.download.nvidia.com/assets/cuda/files/particles.pdf
